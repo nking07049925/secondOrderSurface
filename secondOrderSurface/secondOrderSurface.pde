@@ -19,7 +19,7 @@ color lightC = color(128);
 color ambientC = color(128);
 float lightIntensity = 1;
 color diffuse = color(128), specular = color(256);
-float shininess = 50, reflect = 0.5, opacity = 1, refract = 0;
+float shininess = 50, reflect = 0.5;
 
 float glareForce = 1;
 float glarePower = 100;
@@ -33,8 +33,6 @@ float maxScale = 0.05;
 // Rendering and interface flags
 
 boolean normalColor = false;
-boolean saveFrames = true;
-boolean freeCamera = false;
 boolean iterateValues = true;
 
 PImage skybox;
@@ -42,8 +40,8 @@ PImage skybox;
 PGraphics render;
 
 void setup() {
-  size(1920, 1080, P2D);
-  //fullScreen(P2D);
+  fullScreen(P2D);
+  //size(1920, 1080, P2D);
   
   render = createGraphics(width, height, P2D);
   frag = loadShader("frag.glsl");
@@ -83,24 +81,12 @@ void setup() {
 float degY = PI/6;
 float degX = 0;
 
-int frameAmount = 800;
-int rotations = 3;
-
-float deg = 0;
-
 void draw() {
   // Calculating the camera matrix
-  deg = frameCount * TWO_PI / frameAmount;
   camMat.reset();
-  if (freeCamera) {
-    camMat.rotateY(-degX);
-    camMat.rotateX(-degY);
-    camMat.translate(0, 0, 500);
-  } else {
-    camMat.rotateY(-deg);
-    camMat.rotateX(-PI/6);
-    camMat.translate(0, 0, 500);
-  }
+  camMat.rotateY(-degX);
+  camMat.rotateX(-degY);
+  camMat.translate(0, 0, 500);
   
   if (iterateValues)
     updateValues();
@@ -119,20 +105,16 @@ void draw() {
   render.endDraw();
   // Rendering the result onto the sketch
   image(render, 0, 0);
-  
-  // Saving frames for animations if necessary
-  if (saveFrames && frameCount <= frameAmount * rotations)
-    saveFrame("frames/frame####.png");
 }
 
 void mouseDragged() {
   float yDiff = mouseY - pmouseY;
   float xDiff = mouseX - pmouseX;
   if (mouseButton == LEFT) {
-    degY += yDiff*sqrt(camScale)*0.05;
+    degY += yDiff * sqrt(camScale) * 0.05;
     if (degY > HALF_PI) degY = HALF_PI;
     if (degY < -HALF_PI) degY = -HALF_PI;
-    degX += xDiff*sqrt(camScale)*0.05;
+    degX += xDiff * sqrt(camScale) * 0.05;
   }
 }
 
@@ -141,13 +123,6 @@ void mouseWheel(MouseEvent event) {
   camScale += e*0.001;
   if (camScale < minScale) camScale = minScale;
   if (camScale > maxScale) camScale = maxScale;
-}
-
-void keyPressed() {
-  //updateValues();
-  if (key == 's') {
-    saveFrame("image.png");
-  }
 }
 
 void setShader() {
@@ -174,26 +149,28 @@ void setShader() {
   frag.set("shininess", shininess);
   frag.set("specular", red(specular)/255f, green(specular)/255f, blue(specular)/255f);
   frag.set("reflectivity", reflect);
-  //frag.set("opacity", opacity);
-  //frag.set("refractCoeff", refract);
   frag.set("glarePower", glarePower);
   frag.set("glareForce", glareForce);
   frag.set("glareColor", red(glareColor)/255f, green(glareColor)/255f, blue(glareColor)/255f);
 }
 
+// You can have some dependencies of the surface coefficients overtime here
+float offset = 0;
 
 void updateValues() {
-  a11 = 1+sin(deg); // x²
-  a22 = 1+sin(deg+1); // y²
-  a33 = 1+sin(deg+2); // z²
+  offset += 0.01;
 
-  a12 = 1+sin(deg+3); // xy
-  a13 = 1+sin(deg+4); // xz
-  a23 = 1+sin(deg+5); // yz
+  a11 = 1 + sin(deg); // x²
+  a22 = 1 + sin(deg + 1); // y²
+  a33 = 1 + sin(deg + 2); // z²
 
-  a14 = 1+sin(deg+6); // x
-  a24 = 1+sin(deg+7); // y
-  a34 = 1+sin(deg+8); // z
+  a12 = 1 + sin(deg + 3); // xy
+  a13 = 1 + sin(deg + 4); // xz
+  a23 = 1 + sin(deg + 5); // yz
 
-  a44 = 1+sin(deg+9); // 1
+  a14 = 1 + sin(deg + 6); // x
+  a24 = 1 + sin(deg + 7); // y
+  a34 = 1 + sin(deg + 8); // z
+
+  a44 = 1 + sin(deg + 9); // 1
 }
