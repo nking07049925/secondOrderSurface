@@ -107,20 +107,24 @@ void draw() {
   image(render, 0, 0);
 }
 
+float camSpeedCoeff = 0.05;
+
 void mouseDragged() {
   float yDiff = mouseY - pmouseY;
   float xDiff = mouseX - pmouseX;
   if (mouseButton == LEFT) {
-    degY += yDiff * sqrt(camScale) * 0.05;
+    degY += yDiff * sqrt(camScale) * camSpeed;
     if (degY > HALF_PI) degY = HALF_PI;
     if (degY < -HALF_PI) degY = -HALF_PI;
-    degX += xDiff * sqrt(camScale) * 0.05;
+    degX += xDiff * sqrt(camScale) * camSpeed;
   }
 }
 
+float scrollSpeed = 0.001;
+
 void mouseWheel(MouseEvent event) {
   float e = event.getCount();
-  camScale += e*0.001;
+  camScale += e * scrollSpeed;
   if (camScale < minScale) camScale = minScale;
   if (camScale > maxScale) camScale = maxScale;
 }
