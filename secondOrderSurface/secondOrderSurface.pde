@@ -164,17 +164,17 @@ float offset = 0;
 void updateValues() {
   offset += 0.01;
 
-  a11 = 1 + sin(deg); // x²
-  a22 = 1 + sin(deg + 1); // y²
-  a33 = 1 + sin(deg + 2); // z²
+  a11 = 1 + sin(offset); // x²
+  a22 = 1 + sin(offset + 1); // y²
+  a33 = 1 + sin(offset + 2); // z²
 
-  a12 = 1 + sin(deg + 3); // xy
-  a13 = 1 + sin(deg + 4); // xz
-  a23 = 1 + sin(deg + 5); // yz
+  a12 = 1 + sin(offset + 3); // xy
+  a13 = 1 + sin(offset + 4); // xz
+  a23 = 1 + sin(offset + 5); // yz
 
-  a14 = 1 + sin(deg + 6); // x
-  a24 = 1 + sin(deg + 7); // y
-  a34 = 1 + sin(deg + 8); // z
+  a14 = 1 + sin(offset + 6); // x
+  a24 = 1 + sin(offset + 7); // y
+  a34 = 1 + sin(offset + 8); // z
 
-  a44 = 1 + sin(deg + 9); // 1
+  a44 = 1 + sin(offset + 9); // 1
 }
