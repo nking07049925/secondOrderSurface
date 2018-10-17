@@ -63,15 +63,15 @@ vec3 getSkybox(vec3 dir) {
 	float sqrtXZ = sqrt(dir.x * dir.x + dir.z * dir.z);
 	vec2 angles = vec2(atan(-dir.z, dir.x) + PI,
   	atan(-dir.y, sqrtXZ) + 0.5 * PI);
-  // normalizing coords
+	// normalizing coords
 	vec2 texPos = angles / vec2(2.0 * PI, PI);
 	return texture2D(skybox, texPos).xyz;
 }
 
 // Checking if a point is within a bounding box
 bool inCube(vec3 pos) {
-  if (cubeSize == 0.0) return true;
-  return all(lessThan(abs(pos), vec3(cubeSize)));
+	if (cubeSize == 0.0) return true;
+	return all(lessThan(abs(pos), vec3(cubeSize)));
 } 
 
 // calculating the closest intersection point
@@ -113,7 +113,7 @@ Intersection findPos(vec3 p, vec3 d) {
 			float t = -c / b;
 			res.pos = p + d*t;
 		} else return res;
-  } else {
+	} else {
 		D = sqrt(D);
 		float a2 = a * 2.0;
 		float t1 = (-b - D) / a2;
@@ -155,7 +155,7 @@ Intersection findPos(vec3 p, vec3 d) {
 			else return res;	
 
 		}
-  }
+	}
 
 	res.found = true;
 	return res;
@@ -291,17 +291,18 @@ vec3 trace(vec3 rayPos, vec3 rayDir) {
 void main() {
 	vec3 screenDir = vec3(gl_FragCoord.xy - viewport.zw * 0.5, -camDist);
 	// Samples
-	vec3[] samples = {
-		screenDir + vec3( 0.4, 0.1, 0.0), 
-		screenDir + vec3(-0.4, -0.1, 0.0),
-		screenDir + vec3( 0.1,-0.4, 0.0),
-		screenDir + vec3(-0.1, 0.4, 0.0),
-		screenDir
-	};
+	vec3 samples[5];
+	int i = 0;
+	samples[i++] = screenDir + vec3( 0.4, 0.1, 0.0);
+	samples[i++] = screenDir + vec3(-0.4, -0.1, 0.0);
+	samples[i++] = screenDir + vec3( 0.1,-0.4, 0.0);
+	samples[i++] = screenDir + vec3(-0.1, 0.4, 0.0);
+	samples[i++] = screenDir;
 	// Color stack
 	vec3 sum = vec3(0.0);
 	for (int i = 0; i < samples.length(); i++) 
 		sum += trace(camPos, samples[i] * camRot);
 	// The result is interpolated color
 	gl_FragColor = vec4(sum / float(samples.length()), 1.0);
+	//gl_FragColor = vec4(trace(camPos, screenDir * camRot), 1.0);
 }
