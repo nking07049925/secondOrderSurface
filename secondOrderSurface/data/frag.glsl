@@ -11,6 +11,7 @@ const int MAX_REFLECT = 5;
 struct Intersection {
 	bool found;
 	vec3 pos;
+	vec3 col;
 };
 
 // matrix representing the second order surface
@@ -63,16 +64,57 @@ vec3 getSkybox(vec3 dir) {
 	float sqrtXZ = sqrt(dir.x * dir.x + dir.z * dir.z);
 	vec2 angles = vec2(atan(-dir.z, dir.x) + PI,
   	atan(-dir.y, sqrtXZ) + 0.5 * PI);
-	// normalizing coords
+  // normalizing coords
 	vec2 texPos = angles / vec2(2.0 * PI, PI);
 	return texture2D(skybox, texPos).xyz;
 }
 
 // Checking if a point is within a bounding box
 bool inCube(vec3 pos) {
-	if (cubeSize == 0.0) return true;
-	return all(lessThan(abs(pos), vec3(cubeSize)));
+  if (cubeSize == 0.0) return true;
+  return all(lessThan(abs(pos), vec3(cubeSize)));
 } 
+
+// Checking if the surface is two coincident planes
+bool checkDegeneracy() {
+	vec4 zero4 = vec4(0.0);
+  for (int i = 0; i < 3; i++) {
+  	bool check = surfaceMat[i][i] != 0.0;
+  	if (check) {
+	  	for (int j = 0; j < 4; j++) {
+	  		if (i != j) check = check && all(equal(surfaceMat[j], zero4)) && surfaceMat[i][j] == 0.0;
+	  	}
+	  	if (check) return true;
+	  }
+  }
+  
+  return false;
+}
+
+// Calculating degenerate intersection
+Intersection calcDegenarate(float a, float b, vec3 p, vec3 d) {
+	Intersection res;
+	res.found = true;
+	if (b != 0.0) {
+
+    // Calculating the distance
+		float t = -a / b;
+		// If we are not behind the camera
+		if (t >= 0.0) {
+			// Calculating the poisition and checking if it's within the bounding box
+			vec3 pos = p + d*t;
+			if (inCube(pos)) { 
+				res.pos = pos;
+				return res;
+			}
+
+		}
+	}
+
+	// If we went through and didn't find an intersection, then there is none
+	res.found = false;
+  return res;
+}
 
 // calculating the closest intersection point
 Intersection findPos(vec3 p, vec3 d) {
@@ -93,7 +135,7 @@ Intersection findPos(vec3 p, vec3 d) {
 
 	Intersection res;
 	res.found = false;
-	res.pos = vec3(0.0);
+	res.col = vec3(1.0);
 
 	vec4 P1 = vec4(p, 1.0);
 	vec4 D0 = vec4(d, 0.0);
@@ -101,61 +143,78 @@ Intersection findPos(vec3 p, vec3 d) {
 	vec4 D0A = D0 * surfaceMat;
 	float a = dot(D0A, D0);
 	float b = dot(P1A, D0) + dot(D0A, P1);
-	float c = dot(P1A, P1);
-	// calculating the discriminant
-	float D = b * b - 4.0 * a * c;
-	// no intersections
+	float c = 0.0;
+	float D = 0.0;
+	// checking for a degenarate surface
+	if (!checkDegeneracy()) {
 
-	if (D < 0.0) return res;
+		c = dot(P1A, P1);
+		// calculating the discriminant
+		D = b * b - 4.0 * a * c;
 
-	if (a == 0.0) {
-		if (b != 0.0) {
-			float t = -c / b;
-			res.pos = p + d*t;
-		} else return res;
-	} else {
-		D = sqrt(D);
-		float a2 = a * 2.0;
-		float t1 = (-b - D) / a2;
-		float t2 = (-b + D) / a2;
-		
-		// Finding the closest intersection that is in front of the camera
-		// and within the bounding box
-
-		if (t1 >= 0.0 && t2 >= 0.0) {
-
-    	// If both points are in front of the camera we find the closest one
-			if (t1 > t2) {
-				float temp = t1;
-				t1 = t2;
-				t2 = temp;
-			}
-
-			vec3 pos1 = p + d*t1;
-			vec3 pos2 = p + d*t2;
-
-			// and check if it's within the bounding box, if not we take the further one
-
-			if (inCube(pos1))
-				res.pos = pos1;
-			else if (inCube(pos2))
-				res.pos = pos2;
-			else return res;
-
-		} else {
-
-			float t = 0.0;
-			if (t2 >= 0.0) t = t2;
-			else if (t1 >= 0.0) t = t1;
-			else return res;
-
-			vec3 pos = p + d*t;
-			if (inCube(pos))
-				res.pos = pos;
-			else return res;	
-
+		// D < 0 when there are no intesrections
+		if (D < 0.0)  {
+			res.col = vec3(1.0,0.0,0.0);
+			return res;
 		}
 	}
+
+  // Calculating the intersection if the surface is a simple plane
+	if (a == 0.0) {
+		return calcDegenarate(c, b, p, d);
+  } 
+
+  // precalculating 2a
+	float a2 = a * 2.0;
+
+  // Calculating the intersection if the surface is two coincident planes
+  if (D == 0.0) {
+  	return calcDegenarate(b, a2, p, d);
+  }
+
+	D = sqrt(D);
+	float t1 = (-b - D) / a2;
+	float t2 = (-b + D) / a2;
+	
+	// Finding the closest intersection that is in front of the camera
+	// and within the bounding box
+
+
+	// If both points are in front of the camera
+	if (t1 >= 0.0 && t2 >= 0.0) {
+
+  	// Then sort them closest to furthest
+		if (t1 > t2) {
+			float temp = t1;
+			t1 = t2;
+			t2 = temp;
+		}
+
+		vec3 pos1 = p + d*t1;
+		vec3 pos2 = p + d*t2;
+
+		// and check if it's within the bounding box, if not we take the further one
+
+		if (inCube(pos1))
+			res.pos = pos1;
+		else if (inCube(pos2))
+			res.pos = pos2;
+		else return res;
+
+	} else {
+
+		float t = 0.0;
+		if (t2 >= 0.0) t = t2;
+		else if (t1 >= 0.0) t = t1;
+		else return res;
+
+		vec3 pos = p + d*t;
+		if (inCube(pos))
+			res.pos = pos;
+		else return res;	
+
+	}
+  
 
 	res.found = true;
 	return res;
@@ -230,7 +289,7 @@ vec3 trace(vec3 rayPos, vec3 rayDir) {
 
 			// Returning the calculated light
 			return calcLight(pos, norm, camDir, lightDir);
-		}
+		}// else return inter.col;
 	} else {
 		// Calculation with MAX_REFLECT reflections, set to 1 for the reflection to go into skybox
 		// without intersecting the surface
@@ -291,7 +350,7 @@ vec3 trace(vec3 rayPos, vec3 rayDir) {
 void main() {
 	vec3 screenDir = vec3(gl_FragCoord.xy - viewport.zw * 0.5, -camDist);
 	// Samples
-	vec3 samples[5];
+	/*vec3 samples[5];
 	int i = 0;
 	samples[i++] = screenDir + vec3( 0.4, 0.1, 0.0);
 	samples[i++] = screenDir + vec3(-0.4, -0.1, 0.0);
@@ -303,6 +362,6 @@ void main() {
 	for (int i = 0; i < samples.length(); i++) 
 		sum += trace(camPos, samples[i] * camRot);
 	// The result is interpolated color
-	gl_FragColor = vec4(sum / float(samples.length()), 1.0);
-	//gl_FragColor = vec4(trace(camPos, screenDir * camRot), 1.0);
+	gl_FragColor = vec4(sum / float(samples.length()), 1.0);*/
+	gl_FragColor = vec4(trace(camPos, screenDir * camRot), 1.0);
 }

@@ -1,8 +1,15 @@
 PShader frag;
-float a11, a22, a33; // x² y² z²
-float a12, a13, a23; // xy xz yz
-float a14, a24, a34; // x  y  z
-float a44;           // 1
+
+int valueAmount = 10;
+float[] values = new float[valueAmount];
+
+final int a11 = 0, a22 = 1, a33 = 2;
+final int a12 = 3, a13 = 4, a23 = 5;
+final int a14 = 6, a24 = 7, a34 = 8;
+final int a44 = 9;
+
+String[] valueNames = {"x²", "y²", "z²", "xy", "xz", "yz", "x", "y", "z", "1"};
+
 float boundingCubeSize = 5; //set to zero for none
 color surfaceC = color(255);
 
@@ -19,7 +26,7 @@ color lightC = color(128);
 color ambientC = color(128);
 float lightIntensity = 1;
 color diffuse = color(128), specular = color(256);
-float shininess = 50, reflect = 0.5;
+float shininess = 50, reflect = 0.0;
 
 float glareForce = 1;
 float glarePower = 100;
@@ -33,63 +40,74 @@ float maxScale = 0.05;
 // Rendering and interface flags
 
 boolean normalColor = false;
-boolean iterateValues = true;
+boolean iterateValues = false;
 
 PImage skybox;
 
 PGraphics render;
 
 void setup() {
-  fullScreen(P2D);
-  //size(1920, 1080, P2D);
+  //fullScreen(P2D);
+  size(1800, 1000, P2D);
+  //size(640,640,P2D);
   
   render = createGraphics(width, height, P2D);
   frag = loadShader("frag.glsl");
-  skybox = loadImage("skybox.png");
+  skybox = loadImage("skybox.jpg");
   frag.set("skybox", skybox);
   camMat = new PMatrix3D();
 
   fill(255);
   noStroke();
+  rectMode(CENTER);
 
   lightPos = new PVector(-1000, 800, 2200);
 
   if (!iterateValues) {
-    a11 = 1; // x²
-    a22 = -1; // y²
-    a33 = 1; // z²
+    values[a11] = 1; // x²
+    values[a22] = 0; // y²
+    values[a33] = 0; // z²
   
-    a12 = 0; // xy
-    a13 = 0; // xz
-    a23 = 0; // yz
+    values[a12] = 0; // xy
+    values[a13] = 0; // xz
+    values[a23] = 0; // yz
   
-    a14 = 0; // x
-    a24 = 1; // y
-    a34 = 0; // z
+    values[a14] = 0; // x
+    values[a24] = 0; // y
+    values[a34] = 0; // z
   
-    a44 = -1; // 1
-  
-    a12 /= 2f;
-    a13 /= 2f;
-    a23 /= 2f;
-    a14 /= 2f;
-    a24 /= 2f;
-    a34 /= 2f;
+    values[a44] = 0; // 1
   }
+  
+  sm = new SliderManager(height/2, width/4, height*2/3);
+  float sliderHeight = sm.height*0.9/valueAmount; 
+  float sliderWidth = sm.width*0.7;
+  for (int i = 0; i < valueAmount; i++) {
+    float posY = (i - valueAmount/2f + 0.5)*sliderHeight;
+    float posX = -sliderHeight/2;
+    Slider slider = new Slider(posX, posY, sliderWidth, values[i]);
+    slider.addText(valueNames[i], sliderWidth/2, posY, LEFT);
+    sm.addSlider(slider);
+  }
+  sm.setSteps(0);
 }
 
 float degY = PI/6;
 float degX = 0;
+
+SliderManager sm;
 
 void draw() {
   // Calculating the camera matrix
   camMat.reset();
   camMat.rotateY(-degX);
   camMat.rotateX(-degY);
-  camMat.translate(0, 0, 500);
+  camMat.translate(0, 0, max(width,height));
   
   if (iterateValues)
     updateValues();
+  else 
+    readValuesFromSliders(sm);
     
   // Passing variables from the sketch to the shader
   setShader();
@@ -105,22 +123,34 @@ void draw() {
   render.endDraw();
   // Rendering the result onto the sketch
   image(render, 0, 0);
+  
+  
+  sm.update(mouseX, mouseY);
+  sm.display();
 }
 
-float camSpeedCoeff = 0.05;
+float camSpeedCoeff = 0.02;
 
 void mouseDragged() {
   float yDiff = mouseY - pmouseY;
   float xDiff = mouseX - pmouseX;
-  if (mouseButton == LEFT) {
-    degY += yDiff * sqrt(camScale) * camSpeed;
+  if (mouseButton == LEFT && !sm.pressed) {
+    degY += yDiff * sqrt(camScale) * camSpeedCoeff;
     if (degY > HALF_PI) degY = HALF_PI;
     if (degY < -HALF_PI) degY = -HALF_PI;
-    degX += xDiff * sqrt(camScale) * camSpeed;
+    degX += xDiff * sqrt(camScale) * camSpeedCoeff;
   }
 }
 
-float scrollSpeed = 0.001;
+void mousePressed() {
+  sm.press(mouseX, mouseY);
+}
+
+void mouseReleased() {
+  sm.release();
+}
+
+float scrollSpeed = 1e-3;
 
 void mouseWheel(MouseEvent event) {
   float e = event.getCount();
@@ -131,11 +161,11 @@ void mouseWheel(MouseEvent event) {
 
 void setShader() {
   PMatrix3D surface = new PMatrix3D(
-    a11, a12, a13, a14, 
-    a12, a22, a23, a24, 
-    a13, a23, a33, a34, 
-    a14, a24, a34, a44
-    );
+    values[a11], values[a12], values[a13], values[a14], 
+    values[a12], values[a22], values[a23], values[a24], 
+    values[a13], values[a23], values[a33], values[a34], 
+    values[a14], values[a24], values[a34], values[a44]
+  );
   frag.set("surfaceMat", surface);
   frag.set("cubeSize", boundingCubeSize);
   PVector camPos = new PVector(0, 0, 0);
@@ -158,23 +188,19 @@ void setShader() {
   frag.set("glareColor", red(glareColor)/255f, green(glareColor)/255f, blue(glareColor)/255f);
 }
 
+void readValuesFromSliders(SliderManager sm) {
+  for (int i = 0; i < valueAmount; i++) {
+    values[i] = sm.getValue(i);
+  }
+}
+
 // You can have some dependencies of the surface coefficients overtime here
 float offset = 0;
 
 void updateValues() {
-  offset += 0.01;
+  offset += 0.003;
 
-  a11 = 1 + sin(offset); // x²
-  a22 = 1 + sin(offset + 1); // y²
-  a33 = 1 + sin(offset + 2); // z²
-
-  a12 = 1 + sin(offset + 3); // xy
-  a13 = 1 + sin(offset + 4); // xz
-  a23 = 1 + sin(offset + 5); // yz
-
-  a14 = 1 + sin(offset + 6); // x
-  a24 = 1 + sin(offset + 7); // y
-  a34 = 1 + sin(offset + 8); // z
-
-  a44 = 1 + sin(offset + 9); // 1
+  for (int i = 0; i < valueAmount; i++) {
+    values[i] = sin(offset + TWO_PI*i/valueAmount*offset) * 2;
+  }
 }
